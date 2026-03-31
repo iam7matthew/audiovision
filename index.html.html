@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AudioVision — Genera imágenes para tu vídeo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --accent: #7c6fff;
+    --accent2: #c084fc;
+    --text: #e8e6f0;
+    --muted: #6b6880;
+    --success: #4ade80;
+    --error: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .noise {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.4;
+  }
+
+  header {
+    position: relative; z-index: 10;
+    padding: 2rem 3rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+  }
+
+  .logo {
+    font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  .logo-dot { color: var(--accent2); }
+
+  .tagline {
+    font-size: 0.75rem; color: var(--muted); letter-spacing: 0.1em;
+    text-transform: uppercase; font-family: 'DM Mono', monospace;
+    margin-left: auto;
+  }
+
+  main {
+    position: relative; z-index: 10;
+    max-width: 1100px; margin: 0 auto; padding: 3rem 2rem;
+  }
+
+  .hero {
+    text-align: center; margin-bottom: 3rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800; letter-spacing: -0.04em;
+    line-height: 1.1; margin-bottom: 1rem;
+  }
+
+  .hero h1 span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  .hero p {
+    color: var(--muted); font-size: 1.1rem; max-width: 550px; margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 20px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--surface);
+    position: relative; overflow: hidden;
+    margin-bottom: 2rem;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(124,111,255,0.05);
+  }
+
+  .upload-zone.has-file {
+    border-color: var(--success);
+    border-style: solid;
+  }
+
+  .upload-icon {
+    width: 64px; height: 64px; margin: 0 auto 1.5rem;
+    background: rgba(124,111,255,0.15);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  }
+
+  .upload-icon svg { width: 28px; height: 28px; color: var(--accent); }
+
+  .upload-zone h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .upload-zone p { color: var(--muted); font-size: 0.9rem; }
+
+  #fileInput { display: none; }
+
+  .audio-info {
+    display: none;
+    align-items: center; gap: 1rem;
+    background: rgba(74,222,128,0.08);
+    border: 1px solid rgba(74,222,128,0.2);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .audio-info.show { display: flex; }
+
+  .audio-info-icon {
+    width: 40px; height: 40px;
+    background: rgba(74,222,128,0.15);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .audio-info-text h4 { font-size: 0.95rem; font-weight: 600; color: var(--success); }
+  .audio-info-text p { font-size: 0.8rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .waveform-container {
+    display: none;
+    margin-bottom: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+  }
+
+  .waveform-container.show { display: block; }
+
+  #waveformCanvas {
+    width: 100%; height: 80px; display: block;
+    border-radius: 8px;
+  }
+
+  audio {
+    width: 100%; margin-top: 1rem;
+    border-radius: 8px;
+    background: var(--surface2);
+  }
+
+  .config-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .config-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+  }
+
+  .config-card h4 {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); margin-bottom: 1rem; font-family: 'DM Mono', monospace;
+  }
+
+  label { display: block; font-size: 0.9rem; margin-bottom: 0.5rem; font-weight: 500; }
+
+  select, input[type="text"], textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  select:focus, input[type="text"]:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+
+  input[type="range"] {
+    width: 100%; accent-color: var(--accent);
+    margin: 0.5rem 0;
+  }
+
+  .range-display {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'DM Mono', monospace; font-size: 0.85rem; color: var(--accent);
+  }
+
+  .btn-generate {
+    width: 100%;
+    padding: 1.1rem 2rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 14px;
+    color: #fff; font-family: 'Syne', sans-serif;
+    font-size: 1.1rem; font-weight: 700;
+    cursor: pointer; transition: all 0.3s ease;
+    letter-spacing: -0.01em;
+    margin-bottom: 2rem;
+    position: relative; overflow: hidden;
+  }
+
+  .btn-generate:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,111,255,0.4); }
+  .btn-generate:active { transform: translateY(0); }
+  .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .progress-section { display: none; margin-bottom: 2rem; }
+  .progress-section.show { display: block; }
+
+  .progress-bar-wrap {
+    background: var(--surface2);
+    border-radius: 100px; height: 6px; overflow: hidden;
+    margin: 1rem 0 0.5rem;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 100px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  .progress-label {
+    font-size: 0.8rem; color: var(--muted); font-family: 'DM Mono', monospace;
+  }
+
+  .status-log {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem; max-height: 120px; overflow-y: auto;
+    font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--muted);
+    margin-top: 1rem;
+  }
+
+  .status-log p { margin-bottom: 0.3rem; }
+  .status-log p.success { color: var(--success); }
+  .status-log p.error { color: var(--error); }
+  .status-log p.info { color: var(--accent2); }
+
+  .results-section { display: none; }
+  .results-section.show { display: block; }
+
+  .results-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+
+  .results-header h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; }
+
+  .btn-download {
+    padding: 0.65rem 1.5rem;
+    background: rgba(124,111,255,0.15);
+    border: 1px solid rgba(124,111,255,0.3);
+    border-radius: 10px;
+    color: var(--accent);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+  }
+
+  .btn-download:hover { background: rgba(124,111,255,0.25); }
+
+  .images-timeline {
+    display: flex; flex-direction: column; gap: 1.5rem;
+  }
+
+  .image-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px; overflow: hidden;
+    display: grid; grid-template-columns: 1fr 1.5fr;
+    transition: border-color 0.2s;
+    animation: fadeIn 0.4s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .image-card:hover { border-color: var(--border2); }
+
+  .image-preview {
+    aspect-ratio: 16/9;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+
+  .image-preview img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+
+  .image-preview .loading-img {
+    display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+    color: var(--muted);
+  }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .image-info {
+    padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;
+  }
+
+  .time-badge {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: rgba(124,111,255,0.12);
+    border: 1px solid rgba(124,111,255,0.25);
+    padding: 0.35rem 0.85rem;
+    border-radius: 100px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem; color: var(--accent);
+    margin-bottom: 1rem; width: fit-content;
+  }
+
+  .image-scene-title {
+    font-size: 1.05rem; font-weight: 700;
+    margin-bottom: 0.75rem; line-height: 1.3;
+  }
+
+  .image-prompt-text {
+    font-size: 0.82rem; color: var(--muted); line-height: 1.5;
+    font-family: 'DM Mono', monospace;
+    flex: 1;
+  }
+
+  .scene-duration {
+    margin-top: 1rem;
+    font-size: 0.78rem; color: var(--muted); font-family: 'DM Mono', monospace;
+  }
+
+  .scene-duration span { color: var(--text); font-weight: 600; }
+
+  .video-instructions {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .video-instructions h3 {
+    font-size: 1rem; font-weight: 700; margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+
+  .video-instructions ol {
+    padding-left: 1.25rem;
+    color: var(--muted); font-size: 0.88rem; line-height: 1.8;
+  }
+
+  .video-instructions li strong { color: var(--text); }
+
+  .api-key-notice {
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 12px; padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+    font-size: 0.85rem; color: #fca5a5; line-height: 1.5;
+  }
+
+  .api-key-notice strong { color: var(--error); }
+
+  .segment-selector {
+    display: flex; gap: 0.5rem; margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .seg-btn {
+    padding: 0.4rem 1rem;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.82rem; cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .seg-btn.active, .seg-btn:hover {
+    background: rgba(124,111,255,0.15);
+    border-color: rgba(124,111,255,0.3);
+    color: var(--accent);
+  }
+
+  @media (max-width: 768px) {
+    header { padding: 1.5rem; }
+    main { padding: 2rem 1rem; }
+    .config-grid { grid-template-columns: 1fr; }
+    .image-card { grid-template-columns: 1fr; }
+    .image-preview { aspect-ratio: 16/9; }
+  }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<header>
+  <div class="logo">Audio<span class="logo-dot">Vision</span></div>
+  <div class="tagline">Audio → Imágenes → Vídeo</div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>Tu audio se convierte<br>en <span>imágenes para vídeo</span></h1>
+    <p>Sube un audio, elige el estilo visual y genera automáticamente las imágenes perfectas para cada momento del vídeo.</p>
+  </div>
+
+  <div class="api-key-notice">
+    <strong>Nota:</strong> Esta aplicación usa la API de Claude para analizar el audio y generar los prompts de imagen. Las imágenes se generan con prompts que puedes usar en herramientas como <strong>Midjourney, DALL-E, Stable Diffusion</strong> o <strong>Ideogram</strong>. Puedes activar la generación automática de imágenes con una API key de tu servicio preferido.
+  </div>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="audio/*">
+    <div class="upload-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+      </svg>
+    </div>
+    <h3>Arrastra tu audio aquí</h3>
+    <p>o haz clic para seleccionar — MP3, WAV, M4A, OGG, FLAC</p>
+  </div>
+
+  <div class="audio-info" id="audioInfo">
+    <div class="audio-info-icon">
+      <svg width="18" height="18" fill="none" stroke="#4ade80" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+    </div>
+    <div class="audio-info-text">
+      <h4 id="audioFileName">audio.mp3</h4>
+      <p id="audioMeta">0:00 · 0 MB</p>
+    </div>
+  </div>
+
+  <div class="waveform-container" id="waveformContainer">
+    <canvas id="waveformCanvas"></canvas>
+    <audio id="audioPlayer" controls></audio>
+  </div>
+
+  <div class="config-grid">
+    <div class="config-card">
+      <h4>Estilo Visual</h4>
+      <label for="styleSelect">Estética de las imágenes</label>
+      <select id="styleSelect">
+        <option value="cinematic photorealistic">🎬 Cinemático y fotorrealista</option>
+        <option value="oil painting artistic">🎨 Pintura al óleo artística</option>
+        <option value="anime illustration">🌸 Ilustración anime</option>
+        <option value="dark moody atmospheric">🌑 Oscuro y atmosférico</option>
+        <option value="vibrant colorful pop art">🎨 Pop art vibrante</option>
+        <option value="minimalist clean">◻️ Minimalista limpio</option>
+        <option value="watercolor soft dreamy">🎨 Acuarela suave y soñadora</option>
+        <option value="retro vintage 80s synthwave">🕹️ Retro vintage / synthwave</option>
+        <option value="documentary photography">📷 Fotografía documental</option>
+        <option value="epic fantasy concept art">⚔️ Fantasy épico / concept art</option>
+      </select>
+    </div>
+
+    <div class="config-card">
+      <h4>Segmentación temporal</h4>
+      <label>Cambio de imagen cada <span id="intervalVal">10</span> segundos</label>
+      <input type="range" id="intervalRange" min="5" max="30" step="5" value="10">
+      <div class="range-display">
+        <span>5s (rápido)</span>
+        <span>30s (lento)</span>
+      </div>
+    </div>
+
+    <div class="config-card">
+      <h4>Idioma del audio</h4>
+      <label for="langSelect">¿En qué idioma está el audio?</label>
+      <select id="langSelect">
+        <option value="Spanish">Español</option>
+        <option value="English">Inglés</option>
+        <option value="French">Francés</option>
+        <option value="German">Alemán</option>
+        <option value="Portuguese">Portugués</option>
+        <option value="Italian">Italiano</option>
+        <option value="Japanese">Japonés</option>
+        <option value="Other">Otro</option>
+      </select>
+    </div>
+
+    <div class="config-card">
+      <h4>Contexto adicional</h4>
+      <label for="contextInput">¿Sobre qué trata el audio? (opcional)</label>
+      <textarea id="contextInput" rows="3" placeholder="Ej: Es una narración sobre viajes por Europa, un podcast de tecnología, una canción de amor..."></textarea>
+    </div>
+  </div>
+
+  <button class="btn-generate" id="generateBtn" disabled>
+    ✦ Analizar audio y generar imágenes
+  </button>
+
+  <div class="progress-section" id="progressSection">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="progress-label" id="progressLabel">Iniciando análisis...</div>
+    <div class="status-log" id="statusLog"></div>
+  </div>
+
+  <div class="results-section" id="resultsSection">
+    <div class="results-header">
+      <h2>Imágenes del vídeo</h2>
+      <button class="btn-download" id="downloadBtn">↓ Exportar guion</button>
+    </div>
+    <div class="images-timeline" id="imagesTimeline"></div>
+
+    <div class="video-instructions">
+      <h3>
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent)">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Cómo crear el vídeo
+      </h3>
+      <ol>
+        <li>Descarga o genera las imágenes usando los prompts con <strong>Midjourney, DALL-E 3, Ideogram o Stable Diffusion</strong></li>
+        <li>Abre <strong>DaVinci Resolve, Premiere, CapCut o iMovie</strong></li>
+        <li>Importa el audio original y las imágenes generadas</li>
+        <li>Coloca cada imagen en el timeline según los tiempos indicados</li>
+        <li>Añade transiciones suaves (fundidos de 0.5-1s) entre imágenes</li>
+        <li>Exporta tu vídeo en la resolución deseada (recomendado: 1920×1080)</li>
+      </ol>
+    </div>
+  </div>
+</main>
+
+<script>
+let audioFile = null;
+let audioDuration = 0;
+let generatedScenes = [];
+
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const audioInfo = document.getElementById('audioInfo');
+const waveformContainer = document.getElementById('waveformContainer');
+const audioPlayer = document.getElementById('audioPlayer');
+const generateBtn = document.getElementById('generateBtn');
+const progressSection = document.getElementById('progressSection');
+const progressBar = document.getElementById('progressBar');
+const progressLabel = document.getElementById('progressLabel');
+const statusLog = document.getElementById('statusLog');
+const resultsSection = document.getElementById('resultsSection');
+const imagesTimeline = document.getElementById('imagesTimeline');
+const intervalRange = document.getElementById('intervalRange');
+const intervalVal = document.getElementById('intervalVal');
+
+intervalRange.addEventListener('input', () => {
+  intervalVal.textContent = intervalRange.value;
+});
+
+uploadZone.addEventListener('click', () => fileInput.click());
+
+uploadZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  uploadZone.classList.add('dragover');
+});
+
+uploadZone.addEventListener('dragleave', () => {
+  uploadZone.classList.remove('dragover');
+});
+
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('audio/')) handleFile(file);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function handleFile(file) {
+  audioFile = file;
+  uploadZone.classList.add('has-file');
+
+  const url = URL.createObjectURL(file);
+  audioPlayer.src = url;
+
+  audioPlayer.addEventListener('loadedmetadata', () => {
+    audioDuration = audioPlayer.duration;
+    document.getElementById('audioFileName').textContent = file.name;
+    document.getElementById('audioMeta').textContent = `${formatTime(audioDuration)} · ${formatSize(file.size)}`;
+    audioInfo.classList.add('show');
+    waveformContainer.classList.add('show');
+    generateBtn.disabled = false;
+    drawWaveform(file);
+  });
+}
+
+async function drawWaveform(file) {
+  const canvas = document.getElementById('waveformCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = 80 * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const data = audioBuffer.getChannelData(0);
+
+    const width = canvas.offsetWidth;
+    const height = 80;
+    const step = Math.ceil(data.length / width);
+    const amp = height / 2;
+
+    ctx.clearRect(0, 0, width, height);
+
+    for (let i = 0; i < width; i++) {
+      let min = 1.0, max = -1.0;
+      for (let j = 0; j < step; j++) {
+        const val = data[i * step + j] || 0;
+        if (val < min) min = val;
+        if (val > max) max = val;
+      }
+      const gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, '#7c6fff');
+      gradient.addColorStop(1, '#c084fc');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+    }
+  } catch (e) {
+    const width = canvas.offsetWidth;
+    const height = 80;
+    for (let i = 0; i < width; i++) {
+      const h = (Math.sin(i * 0.05) * 0.3 + Math.random() * 0.3 + 0.2) * height;
+      ctx.fillStyle = '#7c6fff';
+      ctx.fillRect(i, (height - h) / 2, 1, h);
+    }
+  }
+}
+
+function addLog(msg, type = '') {
+  const p = document.createElement('p');
+  p.textContent = `> ${msg}`;
+  if (type) p.className = type;
+  statusLog.appendChild(p);
+  statusLog.scrollTop = statusLog.scrollHeight;
+}
+
+function setProgress(pct, label) {
+  progressBar.style.width = pct + '%';
+  progressLabel.textContent = label;
+}
+
+generateBtn.addEventListener('click', async () => {
+  if (!audioFile) return;
+
+  progressSection.classList.add('show');
+  resultsSection.classList.remove('show');
+  imagesTimeline.innerHTML = '';
+  statusLog.innerHTML = '';
+  generateBtn.disabled = true;
+  generatedScenes = [];
+
+  const style = document.getElementById('styleSelect').value;
+  const interval = parseInt(intervalRange.value);
+  const lang = document.getElementById('langSelect').value;
+  const context = document.getElementById('contextInput').value;
+
+  const numImages = Math.ceil(audioDuration / interval);
+
+  setProgress(5, 'Preparando análisis...');
+  addLog(`Audio: ${formatTime(audioDuration)} · ${numImages} imágenes necesarias`, 'info');
+  addLog(`Intervalo: ${interval}s · Estilo: ${style}`, 'info');
+
+  const segments = [];
+  for (let i = 0; i < numImages; i++) {
+    const start = i * interval;
+    const end = Math.min(start + interval, audioDuration);
+    segments.push({ index: i + 1, start, end, duration: end - start });
+  }
+
+  setProgress(15, 'Analizando audio con IA...');
+  addLog('Enviando audio a Claude para análisis...', 'info');
+
+  try {
+    const base64Audio = await fileToBase64(audioFile);
+    const mediaType = audioFile.type || 'audio/mpeg';
+
+    setProgress(30, 'Generando guion visual...');
+
+    const prompt = buildPrompt(segments, style, lang, context, audioDuration);
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `You are analyzing an audio file to generate image prompts for a video. The audio is in ${lang}. ${context ? `Context about the audio: ${context}.` : ''} \n\n${prompt}\n\nIMPORTANT: Respond ONLY with valid JSON, no markdown, no backticks, no explanation. Just the raw JSON array.`
+            }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message || 'Error de API');
+    }
+
+    setProgress(60, 'Procesando respuesta...');
+    addLog('Análisis completado. Procesando escenas...', 'success');
+
+    let rawText = data.content.map(c => c.text || '').join('');
+    rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    let scenes;
+    try {
+      scenes = JSON.parse(rawText);
+    } catch (e) {
+      const match = rawText.match(/\[[\s\S]*\]/);
+      if (match) scenes = JSON.parse(match[0]);
+      else throw new Error('No se pudo parsear la respuesta JSON');
+    }
+
+    generatedScenes = scenes;
+    setProgress(80, 'Construyendo timeline...');
+    addLog(`${scenes.length} escenas generadas correctamente`, 'success');
+
+    resultsSection.classList.add('show');
+    renderTimeline(scenes, segments);
+    setProgress(100, '¡Listo! Imágenes generadas');
+    addLog('Proceso completado.', 'success');
+
+  } catch (err) {
+    addLog(`Error: ${err.message}`, 'error');
+    setProgress(0, 'Error en el proceso');
+    console.error(err);
+
+    addLog('Generando escenas de ejemplo para demostración...', 'info');
+    const demoScenes = generateDemoScenes(segments, style, context);
+    generatedScenes = demoScenes;
+    setProgress(100, 'Modo demo — prompts de ejemplo generados');
+    resultsSection.classList.add('show');
+    renderTimeline(demoScenes, segments);
+  }
+
+  generateBtn.disabled = false;
+});
+
+function buildPrompt(segments, style, lang, context, totalDuration) {
+  return `Analyze this audio and create a JSON array of ${segments.length} visual scenes for a video of ${formatTime(totalDuration)} duration.
+
+Each scene should have:
+- "index": scene number (1-based)
+- "start": start time in seconds
+- "end": end time in seconds  
+- "title": a short evocative scene title (max 6 words, in Spanish)
+- "description": what happens/is said in this moment (in Spanish, 1-2 sentences)
+- "imagePrompt": a detailed English image prompt for ${style} style that visually represents this moment (50-80 words, very descriptive for AI image generation)
+- "mood": emotional tone of this moment (in Spanish)
+
+Segments to analyze:
+${segments.map(s => `- Scene ${s.index}: ${formatTime(s.start)} to ${formatTime(s.end)}`).join('\n')}
+
+Style to use for ALL images: "${style}"
+Make sure each imagePrompt starts with the style specification and includes lighting, composition, colors, and mood details.
+
+Return ONLY a JSON array, no other text.`;
+}
+
+function generateDemoScenes(segments, style, context) {
+  const themes = [
+    { title: 'Apertura visual', mood: 'Épico y emotivo', desc: 'Inicio del audio con introducción general.' },
+    { title: 'Desarrollo central', mood: 'Intenso y envolvente', desc: 'Momento de máximo desarrollo del tema.' },
+    { title: 'Clímax dramático', mood: 'Poderoso y climático', desc: 'El punto de mayor tensión o emoción.' },
+    { title: 'Transición narrativa', mood: 'Reflexivo y tranquilo', desc: 'Cambio de tema o momento de pausa.' },
+    { title: 'Resolución final', mood: 'Esperanzador y conclusivo', desc: 'Cierre y resolución del mensaje.' },
+    { title: 'Momento contemplativo', mood: 'Sereno y meditativo', desc: 'Un instante de reflexión profunda.' },
+    { title: 'Energía ascendente', mood: 'Dinámico y emocionante', desc: 'Momento de mayor energía y movimiento.' },
+    { title: 'Paisaje interior', mood: 'Onírico e íntimo', desc: 'Exploración de emociones internas.' },
+  ];
+
+  return segments.map((seg, i) => {
+    const theme = themes[i % themes.length];
+    return {
+      index: seg.index,
+      start: seg.start,
+      end: seg.end,
+      title: theme.title,
+      description: theme.desc + (context ? ` Contexto: ${context}` : ''),
+      imagePrompt: `${style}, ${theme.mood.toLowerCase()} atmosphere, ${context || 'dramatic scene'}, professional composition, cinematic lighting, high detail, 8k resolution, golden hour light, depth of field, ${style} aesthetics`,
+      mood: theme.mood
+    };
+  });
+}
+
+function renderTimeline(scenes, segments) {
+  imagesTimeline.innerHTML = '';
+  scenes.forEach((scene, i) => {
+    const seg = segments[i] || { start: scene.start, end: scene.end };
+    const card = document.createElement('div');
+    card.className = 'image-card';
+    card.style.animationDelay = `${i * 0.08}s`;
+
+    card.innerHTML = `
+      <div class="image-preview" id="preview-${i}">
+        <div class="loading-img">
+          <div style="width:40px;height:40px;background:rgba(124,111,255,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+            <svg width="20" height="20" fill="none" stroke="var(--accent)" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <span style="font-size:0.75rem;font-family:'DM Mono',monospace;color:var(--muted);">Generar imagen →</span>
+        </div>
+      </div>
+      <div class="image-info">
+        <div>
+          <div class="time-badge">
+            ◷ ${formatTime(scene.start)} — ${formatTime(scene.end)}
+          </div>
+          <div class="image-scene-title">${scene.title || `Escena ${scene.index}`}</div>
+          <div class="image-prompt-text">${scene.imagePrompt || scene.description}</div>
+        </div>
+        <div>
+          ${scene.mood ? `<div style="font-size:0.78rem;color:var(--accent2);margin-bottom:0.5rem;font-family:'DM Mono',monospace;">✦ ${scene.mood}</div>` : ''}
+          <div class="scene-duration">Duración: <span>${Math.round(scene.end - scene.start)}s</span></div>
+          <button onclick="copyPrompt(${i})" style="margin-top:0.75rem;padding:0.45rem 1rem;background:rgba(124,111,255,0.1);border:1px solid rgba(124,111,255,0.2);border-radius:8px;color:var(--accent);font-size:0.78rem;font-family:'DM Mono',monospace;cursor:pointer;width:100%;text-align:center;">
+            Copiar prompt
+          </button>
+        </div>
+      </div>
+    `;
+
+    imagesTimeline.appendChild(card);
+  });
+}
+
+window.copyPrompt = function(index) {
+  const scene = generatedScenes[index];
+  if (!scene) return;
+  navigator.clipboard.writeText(scene.imagePrompt || scene.description).then(() => {
+    const btns = document.querySelectorAll('.image-card button');
+    if (btns[index]) {
+      btns[index].textContent = '✓ Copiado';
+      setTimeout(() => { btns[index].textContent = 'Copiar prompt'; }, 2000);
+    }
+  });
+};
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  if (!generatedScenes.length) return;
+
+  let content = `GUION VISUAL — AudioVision\n`;
+  content += `Audio: ${audioFile?.name || 'audio'}\n`;
+  content += `Duración total: ${formatTime(audioDuration)}\n`;
+  content += `Estilo: ${document.getElementById('styleSelect').value}\n`;
+  content += `Generado: ${new Date().toLocaleDateString('es-ES')}\n\n`;
+  content += '='.repeat(60) + '\n\n';
+
+  generatedScenes.forEach(scene => {
+    content += `ESCENA ${scene.index}: ${scene.title}\n`;
+    content += `Tiempo: ${formatTime(scene.start)} → ${formatTime(scene.end)}\n`;
+    content += `Duración: ${Math.round(scene.end - scene.start)} segundos\n`;
+    if (scene.mood) content += `Mood: ${scene.mood}\n`;
+    content += `\nDescripción:\n${scene.description}\n`;
+    content += `\nPROMPT PARA IMAGEN:\n${scene.imagePrompt}\n`;
+    content += '\n' + '-'.repeat(60) + '\n\n';
+  });
+
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'guion_visual_audiovision.txt';
+  a.click(); URL.revokeObjectURL(url);
+});
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+</script>
+</body>
+</html>

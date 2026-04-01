@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>AudioVision</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #0d0d14; color: #e8e6f0; min-height: 100vh; padding-bottom: 3rem; }
+
+  header { padding: 1.5rem 1.25rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .logo { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em; }
+  .logo span { color: #a78bfa; }
+  .tagline { font-size: 0.72rem; color: #5b5870; margin-top: 2px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  main { padding: 1.25rem; max-width: 600px; margin: 0 auto; }
+
+  .section { background: #16161f; border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 1.25rem; margin-bottom: 1rem; }
+  .section-label { font-size: 10px; font-weight: 600; color: #5b5870; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.6rem; }
+  .section h3 { font-size: 15px; font-weight: 600; margin-bottom: 0.4rem; }
+  .section p { font-size: 13px; color: #7c7a8e; line-height: 1.5; }
+
+  textarea, select {
+    width: 100%; margin-top: 0.6rem;
+    background: #0d0d14; border: 1px solid rgba(255,255,255,0.1);
+    color: #e8e6f0; border-radius: 10px; padding: 0.75rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-size: 15px; outline: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  textarea { resize: none; height: 90px; }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%235b5870' d='M6 8L0 0h12z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 2rem; }
+
+  input[type=range] { width: 100%; margin-top: 0.75rem; accent-color: #a78bfa; height: 4px; }
+  .range-labels { display: flex; justify-content: space-between; font-size: 11px; color: #5b5870; margin-top: 4px; }
+  .range-val { text-align: center; font-size: 13px; color: #a78bfa; font-weight: 600; margin-top: 2px; }
+
+  .cost-line { font-size: 12px; color: #5b5870; margin-bottom: 0.75rem; text-align: center; }
+  .cost-line strong { color: #4ade80; }
+
+  .btn-generate {
+    width: 100%; padding: 1rem;
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    border: none; border-radius: 14px;
+    color: #fff; font-size: 16px; font-weight: 700;
+    cursor: pointer; margin-bottom: 1.25rem;
+    -webkit-appearance: none; appearance: none;
+    letter-spacing: -0.01em;
+  }
+  .btn-generate:disabled { opacity: 0.4; }
+  .btn-generate:active { transform: scale(0.98); }
+
+  .progress-box { background: #16161f; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 1.25rem; margin-bottom: 1rem; display: none; }
+  .progress-box.show { display: block; }
+  .progress-track { background: #0d0d14; border-radius: 100px; height: 5px; overflow: hidden; margin: 0.75rem 0 0.5rem; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 100px; width: 0%; transition: width 0.4s ease; }
+  .progress-text { font-size: 12px; color: #5b5870; }
+
+  .results { display: none; }
+  .results.show { display: block; }
+  .results-title { font-size: 17px; font-weight: 700; margin-bottom: 1rem; letter-spacing: -0.02em; }
+
+  .img-card { background: #16161f; border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; overflow: hidden; margin-bottom: 1rem; }
+  .img-area { width: 100%; aspect-ratio: 16/9; background: #0d0d14; display: flex; align-items: center; justify-content: center; position: relative; }
+  .img-area img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-loading { display: flex; flex-direction: column; align-items: center; gap: 10px; color: #5b5870; font-size: 12px; }
+  .spinner { width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .img-info { padding: 0.9rem 1rem; }
+  .img-time { font-size: 11px; color: #a78bfa; font-family: 'Courier New', monospace; margin-bottom: 4px; }
+  .img-title { font-size: 14px; font-weight: 600; }
+  .btn-save { display: block; width: calc(100% - 2rem); margin: 0 1rem 1rem; padding: 0.65rem; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.25); border-radius: 10px; color: #a78bfa; font-size: 13px; font-weight: 600; text-align: center; text-decoration: none; cursor: pointer; -webkit-appearance: none; }
+  .btn-save:active { background: rgba(167,139,250,0.2); }
+  .error-msg { padding: 0.75rem 1rem 1rem; font-size: 13px; color: #f87171; }
+
+  .status-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.2); border-radius: 100px; padding: 0.35rem 0.85rem; font-size: 12px; color: #4ade80; margin-bottom: 1.25rem; }
+  .dot { width: 6px; height: 6px; background: #4ade80; border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Audio<span>Vision</span></div>
+  <div class="tagline">Convierte tu audio en imágenes para vídeo</div>
+</header>
+
+<main>
+
+  <div class="status-badge">
+    <div class="dot"></div>
+    Conectado a Pollinations
+  </div>
+
+  <div class="section">
+    <div class="section-label">Paso 1</div>
+    <h3>Describe tu audio</h3>
+    <p>Cuéntanos de qué trata para generar imágenes coherentes.</p>
+    <textarea id="audioDesc" placeholder="Ej: Una canción épica orquestal que empieza suave y va crescendo. Evoca aventura y superación en paisajes naturales. Transmite esperanza y emoción..."></textarea>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Paso 2</div>
+    <h3>Duración del audio</h3>
+    <select id="durSelect">
+      <option value="30">30 segundos</option>
+      <option value="60">1 minuto</option>
+      <option value="90">1 min 30 s</option>
+      <option value="120" selected>2 minutos</option>
+      <option value="180">3 minutos</option>
+      <option value="240">4 minutos</option>
+      <option value="300">5 minutos</option>
+      <option value="420">7 minutos</option>
+      <option value="600">10 minutos</option>
+    </select>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Paso 3</div>
+    <h3>Frecuencia de imágenes</h3>
+    <p>Cambio de imagen cada <span id="intVal">10</span> segundos</p>
+    <input type="range" id="intRange" min="5" max="30" step="5" value="10">
+    <div class="range-labels"><span>5s</span><span>15s</span><span>30s</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Paso 4</div>
+    <h3>Estilo visual</h3>
+    <select id="styleSelect">
+      <option value="cinematic photorealistic dramatic lighting film still 8k">Cinemático y fotorrealista</option>
+      <option value="oil painting impressionist thick brushstrokes artistic museum quality">Pintura al óleo artística</option>
+      <option value="anime illustration vibrant colors detailed studio ghibli style">Ilustración anime</option>
+      <option value="dark moody atmospheric noir dramatic shadows high contrast">Oscuro y atmosférico</option>
+      <option value="minimalist clean soft tones elegant simple composition">Minimalista limpio</option>
+      <option value="watercolor illustration soft dreamy pastel tones delicate">Acuarela soñadora</option>
+      <option value="retro synthwave neon lights 80s aesthetic purple pink neon">Retro synthwave</option>
+      <option value="epic fantasy concept art magical atmosphere highly detailed">Fantasy épico</option>
+      <option value="documentary photography natural light candid realistic">Fotografía documental</option>
+    </select>
+  </div>
+
+  <div class="cost-line">Se generarán <strong id="numImgs">12</strong> imágenes — <strong>gratis con tu cuenta</strong></div>
+
+  <button class="btn-generate" id="genBtn">Generar imágenes</button>
+
+  <div class="progress-box" id="progressBox">
+    <div class="progress-text" id="progressText">Iniciando...</div>
+    <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="progress-text" id="progressSub" style="margin-top:4px;font-size:11px;color:#3d3b4e;"></div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="results-title" id="resultsTitle"></div>
+    <div id="imgList"></div>
+  </div>
+
+</main>
+
+<script>
+const PKEY = 'sk_7UTGM23TAyJQHSUPivN1mJUBur6Wzbu0';
+
+const intRange = document.getElementById('intRange');
+const intVal = document.getElementById('intVal');
+const durSelect = document.getElementById('durSelect');
+
+function updateCount() {
+  const n = Math.ceil(parseInt(durSelect.value) / parseInt(intRange.value));
+  document.getElementById('numImgs').textContent = n;
+}
+intRange.addEventListener('input', () => { intVal.textContent = intRange.value; updateCount(); });
+durSelect.addEventListener('change', updateCount);
+updateCount();
+
+function fmt(s) {
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return m+':'+String(sec).padStart(2,'0');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function buildUrl(prompt, seed) {
+  const p = (prompt + ' no text no watermark no letters').replace(/[^\w\s,.\-]/g,' ').trim();
+  return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(p) +
+    '?width=1280&height=720&seed=' + seed + '&nologo=true&model=flux&token=' + PKEY;
+}
+
+function loadImg(url) {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => reject(new Error('Tiempo agotado')), 90000);
+    img.onload = () => { clearTimeout(timer); resolve(img); };
+    img.onerror = () => { clearTimeout(timer); reject(new Error('No se pudo cargar')); };
+    img.src = url;
+  });
+}
+
+document.getElementById('genBtn').addEventListener('click', async () => {
+  const desc = document.getElementById('audioDesc').value.trim();
+  if (!desc) { alert('Describe tu audio primero.'); return; }
+
+  const dur = parseInt(durSelect.value);
+  const interval = parseInt(intRange.value);
+  const style = document.getElementById('styleSelect').value;
+  const n = Math.ceil(dur / interval);
+
+  const segs = Array.from({length: n}, (_, i) => ({
+    index: i+1,
+    start: i * interval,
+    end: Math.min((i+1) * interval, dur)
+  }));
+
+  document.getElementById('genBtn').disabled = true;
+  document.getElementById('progressBox').classList.add('show');
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('imgList').innerHTML = '';
+
+  const bar = document.getElementById('progressBar');
+  const txt = document.getElementById('progressText');
+  const sub = document.getElementById('progressSub');
+
+  bar.style.width = '5%';
+  txt.textContent = 'Analizando tu audio con IA...';
+  sub.textContent = '';
+
+  let scenes;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        messages: [{role:'user', content:
+          'Generate exactly ' + n + ' image prompts for a video. Audio: "' + desc + '". Style: "' + style + '". Duration: ' + fmt(dur) + ', ' + interval + 's per scene.\n' +
+          'Return ONLY raw JSON array:\n[{"index":1,"start":0,"end":' + interval + ',"title":"Titulo español max 5 palabras","imagePrompt":"English 40-50 words. Start with style. Describe scene lighting mood. No text no letters."}]\n' +
+          'Make each scene visually distinct. Tell a progressive story.'
+        }]
+      })
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    let raw = d.content.map(c => c.text||'').join('').replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const m = raw.match(/\[[\s\S]*\]/);
+    scenes = JSON.parse(m ? m[0] : raw);
+  } catch(e) {
+    const moods = ['epic opening','rising action','emotional peak','quiet moment','dramatic climax','hopeful resolution','peaceful ending','intense scene','dreamy','triumphant','melancholic','energetic'];
+    scenes = segs.map((s,i) => ({
+      ...s,
+      title: 'Escena ' + s.index,
+      imagePrompt: style + ' ' + moods[i%moods.length] + ' scene ' + desc.slice(0,50) + ' cinematic no text no watermark'
+    }));
+  }
+
+  bar.style.width = '12%';
+  txt.textContent = 'Generando imágenes...';
+
+  document.getElementById('results').classList.add('show');
+  document.getElementById('resultsTitle').textContent = 'Generando ' + scenes.length + ' imágenes...';
+
+  const list = document.getElementById('imgList');
+
+  for (let i = 0; i < scenes.length; i++) {
+    const sc = scenes[i];
+    const seed = 5000 + i * 1337 + Math.floor(Math.random() * 200);
+    const url = buildUrl(sc.imagePrompt, seed);
+
+    const card = document.createElement('div');
+    card.className = 'img-card';
+    card.innerHTML =
+      '<div class="img-area" id="ia-'+i+'">' +
+        '<div class="img-loading"><div class="spinner"></div><span>Imagen '+(i+1)+' de '+scenes.length+'...</span></div>' +
+      '</div>' +
+      '<div class="img-info">' +
+        '<div class="img-time">'+fmt(sc.start)+' → '+fmt(sc.end)+'</div>' +
+        '<div class="img-title">'+(sc.title||'Escena '+sc.index)+'</div>' +
+      '</div>';
+    list.appendChild(card);
+
+    sub.textContent = 'Imagen ' + (i+1) + ' de ' + scenes.length;
+
+    try {
+      const img = await loadImg(url);
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      const area = document.getElementById('ia-'+i);
+      area.innerHTML = '';
+      area.appendChild(img);
+
+      const saveA = document.createElement('a');
+      saveA.href = url;
+      saveA.target = '_blank';
+      saveA.rel = 'noopener';
+      saveA.className = 'btn-save';
+      saveA.textContent = 'Mantén pulsado para guardar';
+      card.appendChild(saveA);
+
+    } catch(err) {
+      const area = document.getElementById('ia-'+i);
+      area.innerHTML = '';
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error-msg';
+      errDiv.textContent = 'Error: ' + err.message + '. Reintentando...';
+      card.appendChild(errDiv);
+
+      await sleep(3000);
+      try {
+        const img2 = await loadImg(url + '&r=1');
+        img2.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+        area.innerHTML = '';
+        area.appendChild(img2);
+        errDiv.remove();
+        const saveA2 = document.createElement('a');
+        saveA2.href = url;
+        saveA2.target = '_blank';
+        saveA2.rel = 'noopener';
+        saveA2.className = 'btn-save';
+        saveA2.textContent = 'Mantén pulsado para guardar';
+        card.appendChild(saveA2);
+      } catch(e2) {
+        errDiv.textContent = 'No se pudo generar esta imagen.';
+      }
+    }
+
+    const pct = Math.round(12 + ((i+1)/scenes.length) * 86);
+    bar.style.width = pct + '%';
+
+    if (i < scenes.length - 1) await sleep(800);
+  }
+
+  bar.style.width = '100%';
+  txt.textContent = 'Todas las imágenes generadas';
+  sub.textContent = '';
+  document.getElementById('resultsTitle').textContent = scenes.length + ' imágenes listas para tu vídeo';
+  document.getElementById('genBtn').disabled = false;
+});
+</script>
+</body>
+</html>
